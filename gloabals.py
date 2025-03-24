@@ -9,6 +9,26 @@ Convert GPA into numbers
 Find average gpas (Per section, group)
 Work List Bad/Good
 '''
+
+GRADE_MAP = {
+    "A": 4.00,
+    "A-": 3.67,
+    "B+": 3.33,
+    "B": 3.00,
+    "B-": 2.67,
+    "C+": 2.33,
+    "C": 2.00,
+    "C-": 1.67,
+    "D+": 1.33,
+    "D": 1.00,
+    "D-": 0.67,
+    "F": 0.00,
+    "I": None,
+    "W": None,
+    "P": None,
+    "NP": None
+}
+
 def get_files_in_dir(directory):
     """
     Get all files in a directory.
@@ -34,9 +54,27 @@ def close_files(file_objects):
         except IOError as e:
             print(f"Error closing file: {e}")
 
+def grades_to_num(section):
+    """
+    convert grades to numbers and add to a new row in df
 
-def GetAvgGPAS():
-    pass
+    Args: 
+        section (df): section to convert
+    """
+    section['Numeric Grade'] = section.iloc[:, 2].map(GRADE_MAP)
+
+def section_GPA(section):
+    """
+    finds the GPA of a section
+
+    Args:
+        section (df): section to find GPA of
+    
+    Returns:
+        float: the GPA of that section
+    """
+    return section['Numeric Grade'].mean()
+
 
 def PlaceInList():
     pass
