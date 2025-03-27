@@ -1,96 +1,153 @@
+import customtkinter as ctk
+from tkinter import filedialog
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk
+from PIL import Image, ImageTk
 
 class GPAAnalysisApp:
     def __init__(self, root):
+        ctk.set_appearance_mode("System")  
+        ctk.set_default_color_theme("blue")
+
         self.root = root
         self.root.title("GPA Analysis")
-        self.root.geometry("800x600")
-        self.root.configure(bg="#f0f0f0")
-        
-        # Create Notebook (Tabs)
-        self.notebook = ttk.Notebook(root)
-        self.notebook.pack(expand=True, fill="both", padx=10, pady=10)
-        
-        # Tabs
-        self.dashboard_tab = ttk.Frame(self.notebook, padding=10)
-        self.section_tab = ttk.Frame(self.notebook, padding=10)
-        self.group_tab = ttk.Frame(self.notebook, padding=10)
-        self.good_list_tab = ttk.Frame(self.notebook, padding=10)
-        self.bad_list_tab = ttk.Frame(self.notebook, padding=10)
-        
-        self.notebook.add(self.dashboard_tab, text="Dashboard")
-        self.notebook.add(self.section_tab, text="Based on Section")
-        self.notebook.add(self.group_tab, text="Based on Group")
-        self.notebook.add(self.good_list_tab, text="Good List")
-        self.notebook.add(self.bad_list_tab, text="Work List")
-        
-        # Data storage
-        self.good_list = []  # List of students with high grades
-        self.work_list = []  # List of students with low grades
-        self.uploaded_file = None
-        
-        # Setup each tab
+        self.root.geometry("900x650")
+
+        # Main layout: Sidebar and Content Area
+        self.main_frame = ctk.CTkFrame(self.root)
+        self.main_frame.pack(fill="both", expand=True)
+
+        # Sidebar
+        self.sidebar = ctk.CTkFrame(self.main_frame, width=220, fg_color="#1F1F1F", corner_radius=0)
+        self.sidebar.pack(side="left", fill="y")
+
+        ctk.CTkLabel(self.sidebar, text="GPA Analysis", font=("Arial", 18, "bold"), text_color="white").pack(pady=20)
+
+        # Navigation Buttons
+        self.buttons = {}  # Track active button states
+        self.create_nav_button("Dashboard", self.show_dashboard)
+        self.create_nav_button("Section Data", self.show_section)
+        self.create_nav_button("Group Data", self.show_group)
+        self.create_nav_button("Good List", self.show_good_list)
+        self.create_nav_button("Work List", self.show_bad_list)
+
+        # Content Area
+        self.content_area = ctk.CTkFrame(self.main_frame, fg_color="#282828", corner_radius=10)
+        self.content_area.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+
+        # Initialize Tabs
+        self.tabs = {
+            "Dashboard": ctk.CTkFrame(self.content_area),
+            "Section Data": ctk.CTkFrame(self.content_area),
+            "Group Data": ctk.CTkFrame(self.content_area),
+            "Good List": ctk.CTkFrame(self.content_area),
+            "Work List": ctk.CTkFrame(self.content_area)
+        }
+
         self.setup_dashboard_tab()
         self.setup_section_tab()
         self.setup_group_tab()
-        self.setup_good_bad_tabs()
-        
+        self.setup_good_list_tab()
+        self.setup_bad_list_tab()
+        self.show_dashboard()  
+
+    def create_nav_button(self, name, command):
+        btn = ctk.CTkButton(
+            self.sidebar,
+            text=name,
+            fg_color="transparent", 
+            hover_color="#333333",  
+            text_color="white",
+            anchor="w",  
+            font=("Arial", 14),
+            height=40,
+            command=lambda n=name: self.switch_tab(n, command)
+        )
+        btn.pack(pady=5, padx=10, fill="x")
+        self.buttons[name] = btn
+
+    # Switches the active tab and updates button colors
+    def switch_tab(self, name, command):
+        for btn_name, btn in self.buttons.items():
+            if btn_name == name:
+                btn.configure(fg_color="#444444")  # Highlight active button
+            else:
+                btn.configure(fg_color="transparent")
+
+        command()
+
+    def show_dashboard(self):
+        self.show_tab("Dashboard")
+
+    def show_section(self):
+        self.show_tab("Section Data")
+
+    def show_group(self):
+        self.show_tab("Group Data")
+
+    def show_good_list(self):
+        self.show_tab("Good List")
+
+    def show_bad_list(self):
+        self.show_tab("Work List")
+
+    # Shows selected tab and hides others
+    def show_tab(self, tab_name):
+        for tab in self.tabs.values():
+            tab.pack_forget()
+        self.tabs[tab_name].pack(fill="both", expand=True)
+
+    # Dashboard UI
     def setup_dashboard_tab(self):
-        ttk.Label(self.dashboard_tab, text="CEND Tech", font=("Arial", 18, "bold")).pack(pady=5)
-        ttk.Label(self.dashboard_tab, text="Te(a)ch(er) GPA Calc. APP", font=("Arial", 14)).pack(pady=5)
-        
-        # File upload button
-        self.upload_button = ttk.Button(self.dashboard_tab, text="Select File", command=self.upload_file)
-        self.upload_button.pack(pady=5)
-        
-        # Label to display file name
-        self.file_label = ttk.Label(self.dashboard_tab, text="No file selected", font=("Arial", 12))
-        self.file_label.pack(pady=5)
-    
+        ctk.CTkLabel(self.tabs["Dashboard"], text="TEaCHer GPA Calc. App", font=("Arial", 20, "bold")).pack(pady=10)
+        upload_button = ctk.CTkButton(
+            self.tabs["Dashboard"],
+            text="Upload File",
+            command=self.upload_file
+        )
+        upload_button.pack(pady=20)
+
+        # Add the CEND Tech logo 
+        logo_image = Image.open("./Images/CEND_TECH_Logo.jpg") 
+        logo_image = logo_image.resize((500, 300))  
+        logo_photo = ImageTk.PhotoImage(logo_image)
+
+        logo_label = ctk.CTkLabel(self.tabs["Dashboard"], image=logo_photo, text="")
+        logo_label.image = logo_photo 
+        logo_label.pack(pady=10)
+
+    # File Upload
     def upload_file(self):
-        file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xlsx")])
+        file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
         if file_path:
-            self.uploaded_file = file_path
-            self.file_label.config(text=f"Selected: {file_path.split('/')[-1]}")
-    
+            print(f"File uploaded: {file_path}")
+
+    # Section Data tab setup
     def setup_section_tab(self):
-        ttk.Label(self.section_tab, text="Section Data", font=("Arial", 16, "bold")).pack(pady=10)
-        self.section_tree = ttk.Treeview(self.section_tab, columns=("Section", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"), show="headings")
-        
-        for col in ["Section", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"]:
-            self.section_tree.heading(col, text=col, anchor="center")
-            self.section_tree.column(col, width=75, anchor="center")
-        
-        self.section_tree.pack(fill="both", expand=True, padx=10, pady=10)
-    
+        self.create_table(self.tabs["Section Data"], ["Section Name","GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"])
+
+    # Group Data tab setup
     def setup_group_tab(self):
-        ttk.Label(self.group_tab, text="Group Data", font=("Arial", 16, "bold")).pack(pady=10)
-        
-    def setup_good_bad_tabs(self):
-        # Good List
-        ttk.Label(self.good_list_tab, text="Good List", font=("Arial", 16, "bold")).pack(pady=10)
-        self.good_tree = ttk.Treeview(self.good_list_tab, columns=("Name", "Section"), show="headings")
-        
-        for col in ["Name", "Section"]:
-            self.good_tree.heading(col, text=col, anchor="center")
-            self.good_tree.column(col, width=150, anchor="center")
-        
-        self.good_tree.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # Work List
-        ttk.Label(self.bad_list_tab, text="Work List", font=("Arial", 16, "bold")).pack(pady=10)
-        self.work_tree = ttk.Treeview(self.bad_list_tab, columns=("Name", "Section"), show="headings")
-        
-        for col in ["Name", "Section"]:
-            self.work_tree.heading(col, text=col, anchor="center")
-            self.work_tree.column(col, width=150, anchor="center")
-        
-        self.work_tree.pack(fill="both", expand=True, padx=10, pady=10)
+        self.create_table(self.tabs["Group Data"], ["Group Name", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"])
+
+    # Good List tab setup
+    def setup_good_list_tab(self):
+        self.create_table(self.tabs["Good List"], ["Student Name", "GPA", "History"])
+
+    # Work List tab setup
+    def setup_bad_list_tab(self):
+        self.create_table(self.tabs["Work List"], ["Student Name", "GPA", "History"])
+
+    # Creates a table view
+    def create_table(self, parent, columns):
+        """Creates a table view with the given columns."""
+        tree = ttk.Treeview(parent, columns=columns, show="headings", height=20)
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=100, anchor="center")
+        tree.pack(fill="both", expand=True)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    style = ttk.Style()
-    style.configure("Accent.TButton", font=("Arial", 12), padding=10)
+    root = ctk.CTk()
     app = GPAAnalysisApp(root)
     root.mainloop()
