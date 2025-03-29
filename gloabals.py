@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 '''
 Open Files  -   Open all given files
     Put files into data frames per name
@@ -29,17 +30,36 @@ GRADE_MAP = {
     "NP": None
 }
 
-def get_files_in_dir(directory):
-    """
-    Get all files in a directory.
-    
-    Args:
-        directory (str): Directory to get files from.
-        
-    Returns:
-        list: List of file paths in the directory.
-    """
-    return [os.path.join(directory, file) for file in os.listdir(directory) if os.path.isfile(os.path.join(directory, file))]
+def load_files_to_dataframes():
+    current_dir = os.getcwd()
+    extensions = ('.run', '.grp', '.sec')
+    dataframes = {}
+
+    for file in os.listdir(current_dir):
+        if file.endswith(extensions):
+            file_path = os.path.join(current_dir, file)
+            file_name = os.path.splitext(file)[0]  # Remove extension
+            
+            try:
+                df = pd.read_csv(file_path, sep=",", skiprows=1, header=None)
+
+                # Remove all quotes from every string in the DataFrame
+                df = df.map(lambda x: x.replace('"', '') if isinstance(x, str) else x)
+
+                dataframes[file_name] = df
+                print(f"Loaded {file} into dataframe '{file_name}'")
+            except Exception as e:
+                print(f"Could not read {file}: {e}")
+
+    return dataframes
+
+# Loads the files into the dataframes
+dataframes = load_files_to_dataframes()
+
+# Access a dataframe by its filename
+# print(dataframes["example"]) for a file named 'example.run' 
+for name, df in dataframes.items():
+    print(f"DataFrame for {name}:\n{df}\n{'-'*50}")
 
 def close_files(file_objects):
     """
