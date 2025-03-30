@@ -3,6 +3,8 @@ from tkinter import filedialog
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class GPAAnalysisApp:
     def __init__(self, root):
@@ -109,7 +111,7 @@ class GPAAnalysisApp:
 
         # Add the CEND Tech logo 
         logo_image = Image.open("./Images/CEND_TECH_Logo.jpg") 
-        logo_image = logo_image.resize((500, 300))  
+        logo_image = logo_image.resize((500, 400))  
         logo_photo = ImageTk.PhotoImage(logo_image)
 
         logo_label = ctk.CTkLabel(self.tabs["Dashboard"], image=logo_photo, text="")
@@ -124,11 +126,65 @@ class GPAAnalysisApp:
 
     # Section Data tab setup
     def setup_section_tab(self):
-        self.create_table(self.tabs["Section Data"], ["Section Name","GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"])
+        # Create a frame for the table and chart
+        frame = ctk.CTkFrame(self.tabs["Section Data"])
+        frame.pack(fill="both", expand=True)
+
+        # Table area
+        table_frame = ctk.CTkFrame(frame)
+        table_frame.pack(side="top", fill="x", padx=10, pady=10)
+        self.create_table(table_frame, ["Section Name", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"])
+
+        # Chart area
+        chart_frame = ctk.CTkFrame(frame)
+        chart_frame.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+
+        # Example data for the bar chart
+        sections = ["Section A", "Section B", "Section C"]
+        gpas = [3.5, 3.2, 3.8]
+
+        # Create the bar chart
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.bar(sections, gpas, color="skyblue")
+        ax.set_title("GPA by Section")
+        ax.set_ylabel("GPA")
+        ax.set_xlabel("Sections")
+
+        # Embed the chart in the Tkinter tab
+        canvas = FigureCanvasTkAgg(fig, chart_frame)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        canvas.draw()
 
     # Group Data tab setup
     def setup_group_tab(self):
-        self.create_table(self.tabs["Group Data"], ["Group Name", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"])
+        # Create a frame for the table and chart
+        frame = ctk.CTkFrame(self.tabs["Group Data"])
+        frame.pack(fill="both", expand=True)
+
+        # Table area
+        table_frame = ctk.CTkFrame(frame)
+        table_frame.pack(side="top", fill="x", padx=10, pady=10)
+        self.create_table(table_frame, ["Group Name", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"])
+
+        # Chart area
+        chart_frame = ctk.CTkFrame(frame)
+        chart_frame.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+
+        # Example data for the bar chart
+        groups = ["Group 1", "Group 2", "Group 3"]
+        gpas = [3.4, 3.6, 3.1]
+
+        # Create the bar chart
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.bar(groups, gpas, color="lightgreen")
+        ax.set_title("GPA by Group")
+        ax.set_ylabel("GPA")
+        ax.set_xlabel("Groups")
+
+        # Embed the chart in the Tkinter tab
+        canvas = FigureCanvasTkAgg(fig, chart_frame)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        canvas.draw()
 
     # Good List tab setup
     def setup_good_list_tab(self):
