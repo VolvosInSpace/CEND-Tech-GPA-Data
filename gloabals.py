@@ -30,6 +30,9 @@ GRADE_MAP = {
     "NP": None
 }
 
+Good_List = {}
+Work_List = {}
+
 def load_files_to_dataframes():
     current_dir = os.getcwd()
     extensions = ('.run', '.grp', '.sec')
@@ -89,7 +92,36 @@ def section_GPA(section):
 
 
 def PlaceInList():
-    pass
+    """
+    takes a section and adds all of its students to the appropriate lists
+
+    Does not take into account whether sections have been added yet
+    Does not take into account historical data
+
+    Args:
+        section (string): name of the section to be added
+
+    """
+    
+    for _, student in dataframes[section].iterrows():
+        name, id, grade = student[0], student[1], student[2]
+
+        #student[2] is the grade of the student
+        if grade == 'A':   
+            if id in Good_List:
+                # adds class to the student's existing entry
+                Good_List[id]['classes'].append(section)
+            else:
+                #creates an entry for the student
+                Good_List[id] = {'name': name, 'classes': [section]}
+                
+        elif grade in ['F', 'D+', 'D', 'D-']:
+            if id in Work_List:
+                #adds class to the student's existing entry
+                Work_List[id]['classes'].append(section)
+            else:
+                #creates an entry for the student
+                Work_List[id] = {'name': name, 'classes': [section]}
 
 
 # Example usage:
