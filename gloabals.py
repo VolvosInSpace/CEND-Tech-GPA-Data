@@ -44,7 +44,12 @@ def load_files_to_dataframes():
                 df = pd.read_csv(file_path, sep=",", skiprows=1, header=None)
 
                 # Remove all quotes from every string in the DataFrame
-                df = df.map(lambda x: x.replace('"', '') if isinstance(x, str) else x)
+                # Note: for some reason "applymap" is hated on some versions of python, so ignore it if it says that
+                df = df.applymap(lambda x: x.replace('"', '') if isinstance(x, str) else x)
+
+                # Rename columns if there are at least 3 columns
+                if df.shape[1] >= 3:
+                    df.columns = ["Name", "ID", "GPA"] + list(df.columns[3:])
 
                 dataframes[file_name] = df
                 print(f"Loaded {file} into dataframe '{file_name}'")
@@ -60,19 +65,6 @@ dataframes = load_files_to_dataframes()
 # print(dataframes["example"]) for a file named 'example.run' 
 for name, df in dataframes.items():
     print(f"DataFrame for {name}:\n{df}\n{'-'*50}")
-
-def close_files(file_objects):
-    """
-    Closes a list of file objects.
-    
-    Args:
-        file_objects (list): List of file objects to close.
-    """
-    for file in file_objects:
-        try:
-            file.close()
-        except IOError as e:
-            print(f"Error closing file: {e}")
 
 def grades_to_num(section):
     """
