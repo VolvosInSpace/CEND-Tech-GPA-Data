@@ -220,8 +220,17 @@ class GPAAnalysisApp:
 
     def setup_section_tab(self):
         tab = self.tabs["Section Data"]
-        tk.Label(tab, text="Section GPA Data", font=("Arial", 18, "bold"),
-                 fg="white", bg="#2A2A2A").pack(pady=10)
+        header_frame = tk.Frame(tab, bg="#2A2A2A")
+        header_frame.pack(fill="x", pady=10)
+        
+        tk.Label(header_frame, text="Section GPA Data", font=("Arial", 18, "bold"),
+                 fg="white", bg="#2A2A2A").pack(side="left", padx=20)
+                 
+        export_btn = tk.Button(header_frame, text="Export to CSV", 
+                              command=lambda: self.export_to_csv("Section Data"),
+                              bg="#4CAF50", fg="white", font=("Arial", 10))
+        export_btn.pack(side="right", padx=20)
+        
         # Detailed grade distribution columns
         columns = ["Section Name", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"]
         self.section_table = ttk.Treeview(tab, columns=columns, show="headings", height=20)
@@ -263,9 +272,18 @@ class GPAAnalysisApp:
 
     def setup_group_tab(self):
         frame = self.tabs["Group Data"]
-        self.group_overall_label = tk.Label(frame, text="All groups combined GPA: N/A",
-                                             font=("Arial", 16, "bold"), fg="white", bg="#2A2A2A")
-        self.group_overall_label.pack(pady=(10, 5))
+        header_frame = tk.Frame(frame, bg="#2A2A2A")
+        header_frame.pack(fill="x", pady=(10, 5))
+        
+        self.group_overall_label = tk.Label(header_frame, text="All groups combined GPA: N/A",
+                                            font=("Arial", 16, "bold"), fg="white", bg="#2A2A2A")
+        self.group_overall_label.pack(side="left", padx=20)
+        
+        export_btn = tk.Button(header_frame, text="Export to CSV", 
+                              command=lambda: self.export_to_csv("Group Data"),
+                              bg="#4CAF50", fg="white", font=("Arial", 10))
+        export_btn.pack(side="right", padx=20)
+        
         separator = tk.Frame(frame, height=2, bg="white")
         separator.pack(fill="x", padx=20, pady=5)
         self.group_table = ttk.Treeview(frame, columns=["Group Name", "GPA", "Sections"],
@@ -310,8 +328,19 @@ class GPAAnalysisApp:
                                      ["Student Name", "ID", "Sections"])
 
     def create_student_list_tab(self, tab, title, columns):
-        tk.Label(tab, text=title, font=("Arial", 18, "bold"),
-                 fg="white", bg="#2A2A2A").pack(pady=10)
+        header_frame = tk.Frame(tab, bg="#2A2A2A")
+        header_frame.pack(fill="x", pady=10)
+        
+        tk.Label(header_frame, text=title, font=("Arial", 18, "bold"),
+                 fg="white", bg="#2A2A2A").pack(side="left", padx=20)
+                 
+        # Determine list type from title
+        list_type = "Good List" if "A Grades" in title else "Work List"
+        export_btn = tk.Button(header_frame, text="Export to CSV", 
+                              command=lambda: self.export_to_csv(list_type),
+                              bg="#4CAF50", fg="white", font=("Arial", 10))
+        export_btn.pack(side="right", padx=20)
+        
         table = ttk.Treeview(tab, columns=columns, show="headings", height=20)
         for col in columns:
             table.heading(col, text=col)
@@ -322,7 +351,7 @@ class GPAAnalysisApp:
         table.configure(yscrollcommand=scrollbar.set)
         table.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=10)
         scrollbar.pack(side="right", fill="y", padx=(0, 20), pady=10)
-        if title.startswith("Students with A"):
+        if "A Grades" in title:
             self.good_list_table = table
         else:
             self.work_list_table = table
@@ -346,6 +375,40 @@ class GPAAnalysisApp:
         for student_id, info in work_list.items():
             row_data = [info['name'], student_id, ", ".join(info['classes'])]
             self.work_list_table.insert("", "end", values=row_data)
+
+    def export_to_csv(self, data_type):
+        """General export function that handles file selection and calls appropriate export method"""
+        file_types = [('CSV Files', '*.csv'), ('All Files', '*.*')]
+        default_name = f"{data_type.lower().replace(' ', '_')}_export.csv"
+        
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=file_types,
+            initialfile=default_name
+        )
+        
+        if not filepath:  # User cancelled
+            return
+            
+        try:
+            if data_type == "Section Data":
+                success = self.processor.export_section_data(filepath)
+            elif data_type == "Group Data":
+                success = self.processor.export_group_data(filepath)
+            elif data_type == "Good List":
+                success = self.processor.export_student_list(filepath, list_type='good')
+            elif data_type == "Work List":
+                success = self.processor.export_student_list(filepath, list_type='work')
+            else:
+                messagebox.showerror("Error", f"Unknown data type: {data_type}")
+                return
+                
+            if success:
+                messagebox.showinfo("Export Successful", f"{data_type} exported successfully to:\n{filepath}")
+            else:
+                messagebox.showwarning("No Data", f"No {data_type.lower()} available to export.")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Error exporting data: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()

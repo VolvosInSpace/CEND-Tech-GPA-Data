@@ -255,3 +255,66 @@ class GPAProcessor:
         for df in self.group_dfs.values():
             valid_sections.update(df['Section'].tolist())
         self.section_dfs = {sec: df for sec, df in self.section_dfs.items() if sec in valid_sections}
+
+    def export_section_data(self, filepath):
+        """Export section data to a CSV file"""
+        if not self.section_dfs:
+            return False
+            
+        # Create a DataFrame with all section data for export
+        export_data = []
+        for section_name, df in self.section_dfs.items():
+            distribution = self.get_grade_distribution(section_name)
+            gpa = self.section_gpas.get(section_name)
+            row = {
+                'Section Name': section_name,
+                'GPA': gpa if gpa is not None else 'N/A'
+            }
+            # Add grade distribution
+            for grade, count in distribution.items():
+                row[grade] = count
+                
+            export_data.append(row)
+        
+        # Convert to DataFrame and export
+        export_df = pd.DataFrame(export_data)
+        export_df.to_csv(filepath, index=False)
+        return True
+
+    def export_group_data(self, filepath):
+        """Export group data to a CSV file"""
+        if not self.group_dfs:
+            return False
+            
+        export_data = []
+        for group_name, df in self.group_dfs.items():
+            sections = df['Section'].tolist()
+            group_data = {
+                'Group Name': df['Group Name'].iloc[0] if 'Group Name' in df.columns else group_name,
+                'GPA': self.group_gpas.get(group_name) if self.group_gpas.get(group_name) is not None else 'N/A',
+                'Sections': ', '.join(sections)
+            }
+            export_data.append(group_data)
+        
+        export_df = pd.DataFrame(export_data)
+        export_df.to_csv(filepath, index=False)
+        return True
+
+    def export_student_list(self, filepath, list_type='good'):
+        """Export good or work list to a CSV file"""
+        student_list = self.good_list if list_type == 'good' else self.work_list
+        if not student_list:
+            return False
+            
+        export_data = []
+        for student_id, info in student_list.items():
+            student_data = {
+                'Student Name': info['name'],
+                'Student ID': student_id,
+                'Classes': ', '.join(info['classes'])
+            }
+            export_data.append(student_data)
+        
+        export_df = pd.DataFrame(export_data)
+        export_df.to_csv(filepath, index=False)
+        return True
