@@ -284,8 +284,6 @@ class GPAAnalysisApp:
                               bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
         
-        separator = tk.Frame(frame, height=2, bg="white")
-        separator.pack(fill="x", padx=20, pady=5)
         self.group_table = ttk.Treeview(frame, columns=["Group Name", "GPA", "Sections"],
                                         show="headings", height=10)
         self.group_table.heading("Group Name", text="Group Name")
