@@ -32,6 +32,8 @@ class GPAProcessor:
         
         self.section_gpas = {}
         self.group_gpas = {}
+        self.section_z_scores = {}  # New: store z-scores for sections
+        self.group_z_scores = {}    # New: store z-scores for groups
         self.good_list = {}
         self.work_list = {}
         self.section_credit_hours = {}  # Store credit hours per section
@@ -136,8 +138,50 @@ class GPAProcessor:
                         total_points += valid['Numeric Grade'].sum() * credit_hours
                         total_credits += len(valid) * credit_hours
             self.group_gpas[group_name] = total_points / total_credits if total_credits > 0 else None
-                            
+                        
+        # Calculate z-scores after GPAs are calculated
+        self.calculate_z_scores()
+        
         return self.section_gpas, self.group_gpas
+
+    def calculate_z_scores(self):
+        """
+        Calculate z-scores for sections and groups based on their GPAs.
+        Z-score represents how many standard deviations a GPA is from the mean.
+        """
+        # Calculate z-scores for sections
+        section_gpas = [gpa for gpa in self.section_gpas.values() if gpa is not None]
+        if section_gpas:
+            mean = sum(section_gpas) / len(section_gpas)
+            std_dev = (sum((x - mean) ** 2 for x in section_gpas) / len(section_gpas)) ** 0.5
+            if std_dev > 0:  # Avoid division by zero
+                self.section_z_scores = {name: (gpa - mean) / std_dev 
+                                        for name, gpa in self.section_gpas.items() 
+                                        if gpa is not None}
+            else:
+                # If all GPAs are the same, z-score is 0
+                self.section_z_scores = {name: 0.0 
+                                        for name, gpa in self.section_gpas.items() 
+                                        if gpa is not None}
+        else:
+            self.section_z_scores = {}
+        
+        # Calculate z-scores for groups
+        group_gpas = [gpa for gpa in self.group_gpas.values() if gpa is not None]
+        if group_gpas:
+            mean = sum(group_gpas) / len(group_gpas)
+            std_dev = (sum((x - mean) ** 2 for x in group_gpas) / len(group_gpas)) ** 0.5
+            if std_dev > 0:  # Avoid division by zero
+                self.group_z_scores = {name: (gpa - mean) / std_dev 
+                                    for name, gpa in self.group_gpas.items() 
+                                    if gpa is not None}
+            else:
+                # If all GPAs are the same, z-score is 0
+                self.group_z_scores = {name: 0.0 
+                                    for name, gpa in self.group_gpas.items() 
+                                    if gpa is not None}
+        else:
+            self.group_z_scores = {}
 
     def populate_good_work_lists(self):
         """
@@ -197,6 +241,7 @@ class GPAProcessor:
             section_data = {
                 'name': section_name,
                 'gpa': self.section_gpas.get(section_name),
+                'z_score': self.section_z_scores.get(section_name),
                 'distribution': distribution
             }
             sections_data.append(section_data)
@@ -212,6 +257,7 @@ class GPAProcessor:
             group_data = {
                 'name': df['Group Name'].iloc[0] if 'Group Name' in df.columns else group_name,
                 'gpa': self.group_gpas.get(group_name),
+                'z_score': self.group_z_scores.get(group_name),
                 'sections': sections
             }
             groups_data.append(group_data)
@@ -299,9 +345,11 @@ class GPAProcessor:
         for section_name, df in self.section_dfs.items():
             distribution = self.get_grade_distribution(section_name)
             gpa = self.section_gpas.get(section_name)
+            z_score = self.section_z_scores.get(section_name)
             row = {
                 'Section Name': section_name,
-                'GPA': gpa if gpa is not None else 'N/A'
+                'GPA': gpa if gpa is not None else 'N/A',
+                'Z-Score': z_score if z_score is not None else 'N/A'
             }
             # Add grade distribution
             for grade, count in distribution.items():
@@ -322,9 +370,12 @@ class GPAProcessor:
         export_data = []
         for group_name, df in self.group_dfs.items():
             sections = df['Section'].tolist()
+            gpa = self.group_gpas.get(group_name)
+            z_score = self.group_z_scores.get(group_name)
             group_data = {
                 'Group Name': df['Group Name'].iloc[0] if 'Group Name' in df.columns else group_name,
-                'GPA': self.group_gpas.get(group_name) if self.group_gpas.get(group_name) is not None else 'N/A',
+                'GPA': gpa if gpa is not None else 'N/A',
+                'Z-Score': z_score if z_score is not None else 'N/A',
                 'Sections': ', '.join(sections)
             }
             export_data.append(group_data)

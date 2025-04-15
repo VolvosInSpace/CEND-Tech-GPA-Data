@@ -231,13 +231,14 @@ class GPAAnalysisApp:
                               bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
         
-        # Detailed grade distribution columns
-        columns = ["Section Name", "GPA", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"]
+        # Detailed grade distribution columns with Z-Score added
+        columns = ["Section Name", "GPA", "Z-Score", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"]
         self.section_table = ttk.Treeview(tab, columns=columns, show="headings", height=20)
         for col in columns:
             self.section_table.heading(col, text=col)
             self.section_table.column(col, width=80, anchor="center")
         self.section_table.column("Section Name", width=150, anchor="w")
+        self.section_table.column("Z-Score", width=80, anchor="center")
         scrollbar = ttk.Scrollbar(tab, orient="vertical", command=self.section_table.yview)
         self.section_table.configure(yscrollcommand=scrollbar.set)
         self.section_table.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=10)
@@ -251,10 +252,12 @@ class GPAAnalysisApp:
             return
         for section in sections_data:
             gpa_text = f"{section['gpa']:.2f}" if section['gpa'] is not None else "N/A"
+            z_score_text = f"{section['z_score']:.2f}" if section['z_score'] is not None else "N/A"
             dist = section['distribution']
             row_data = [
                 section['name'],
                 gpa_text,
+                z_score_text,
                 dist.get("A", 0),
                 dist.get("A-", 0),
                 dist.get("B+", 0),
@@ -280,17 +283,19 @@ class GPAAnalysisApp:
         self.group_overall_label.pack(side="left", padx=20)
         
         export_btn = tk.Button(header_frame, text="Export to CSV", 
-                              command=lambda: self.export_to_csv("Group Data"),
-                              bg="#4CAF50", fg="white", font=("Arial", 10))
+                            command=lambda: self.export_to_csv("Group Data"),
+                            bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
         
-        self.group_table = ttk.Treeview(frame, columns=["Group Name", "GPA", "Sections"],
+        self.group_table = ttk.Treeview(frame, columns=["Group Name", "GPA", "Z-Score", "Sections"],
                                         show="headings", height=10)
         self.group_table.heading("Group Name", text="Group Name")
         self.group_table.heading("GPA", text="GPA")
+        self.group_table.heading("Z-Score", text="Z-Score")
         self.group_table.heading("Sections", text="Sections")
         self.group_table.column("Group Name", width=200, anchor="w")
         self.group_table.column("GPA", width=100, anchor="center")
+        self.group_table.column("Z-Score", width=100, anchor="center")
         self.group_table.column("Sections", width=400, anchor="w")
         scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.group_table.yview)
         self.group_table.configure(yscrollcommand=scrollbar.set)
@@ -310,9 +315,11 @@ class GPAAnalysisApp:
             return
         for group in groups_data:
             gpa_text = f"{group['gpa']:.2f}" if group['gpa'] is not None else "N/A"
+            z_score_text = f"{group['z_score']:.2f}" if group['z_score'] is not None else "N/A"
             row_data = [
                 group['name'],
                 gpa_text,
+                z_score_text,
                 ", ".join(group['sections'])
             ]
             self.group_table.insert("", "end", values=row_data)
