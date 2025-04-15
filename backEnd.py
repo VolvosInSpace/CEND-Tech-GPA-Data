@@ -34,6 +34,11 @@ class GPAProcessor:
         self.group_gpas = {}
         self.good_list = {}
         self.work_list = {}
+        self.section_credit_hours = {}  # Store credit hours per section
+
+        # These will store the original data for re-filtering on run selection
+        self.all_section_dfs = {}
+        self.all_group_dfs = {}
 
     def load_files_to_dataframes(self, directory):
         """
@@ -58,6 +63,9 @@ class GPAProcessor:
                             header = f.readline().strip()  # First line header
                         header_parts = header.split()
                         section_name = header_parts[0]
+                        # Extract credit hours if provided; default to 3.0 otherwise
+                        credit_hours = float(header_parts[1]) if len(header_parts) > 1 else 3.0
+                        self.section_credit_hours[section_name] = credit_hours
                         
                         df = pd.read_csv(file_path, sep=",", skiprows=1, header=None)
                         df = df.applymap(lambda x: x.replace('"', '').strip() if isinstance(x, str) else x)
@@ -94,12 +102,19 @@ class GPAProcessor:
                     print(f"Could not read {file}: {e}")
                     raise
         
+        # Save original copies for future run filtering
+        self.all_section_dfs = self.section_dfs.copy()
+        self.all_group_dfs = self.group_dfs.copy()
+        
         return len(self.section_dfs) + len(self.group_dfs) + len(self.run_dfs)
 
     def calculate_all_gpas(self):
         """
         Calculate GPAs for all sections and groups.
+        Section GPA remains as the simple mean (since all students in a section have the same credit hours).
+        Group GPA is now calculated as a weighted average based on credit hours.
         """
+        # Calculate section GPAs (simple average per section)
         for section_name, df in self.section_dfs.items():
             valid_grades = df[df['Numeric Grade'].notna()]
             if not valid_grades.empty:
@@ -107,13 +122,20 @@ class GPAProcessor:
             else:
                 self.section_gpas[section_name] = None
         
+        # Calculate group GPAs using weighted averages
         for group_name, df in self.group_dfs.items():
             sections = df['Section'].tolist()
-            valid_gpas = []
+            total_points = 0.0
+            total_credits = 0.0
             for section in sections:
-                if section in self.section_gpas and self.section_gpas[section] is not None:
-                    valid_gpas.append(self.section_gpas[section])
-            self.group_gpas[group_name] = sum(valid_gpas)/len(valid_gpas) if valid_gpas else None
+                if section in self.section_dfs:
+                    df_section = self.section_dfs[section]
+                    credit_hours = self.section_credit_hours.get(section, 3.0)
+                    valid = df_section[df_section['Numeric Grade'].notna()]
+                    if not valid.empty:
+                        total_points += valid['Numeric Grade'].sum() * credit_hours
+                        total_credits += len(valid) * credit_hours
+            self.group_gpas[group_name] = total_points / total_credits if total_credits > 0 else None
                             
         return self.section_gpas, self.group_gpas
 
@@ -197,10 +219,17 @@ class GPAProcessor:
 
     def get_overall_gpa(self):
         """
-        Calculate the overall GPA across all groups.
+        Calculate the overall GPA across all sections using weighted averages.
         """
-        all_gpas = [gpa for gpa in self.group_gpas.values() if gpa is not None]
-        return sum(all_gpas)/len(all_gpas) if all_gpas else None
+        total_points = 0.0
+        total_credits = 0.0
+        for section_name, df in self.section_dfs.items():
+            credit_hours = self.section_credit_hours.get(section_name, 3.0)
+            valid = df[df['Numeric Grade'].notna()]
+            if not valid.empty:
+                total_points += valid['Numeric Grade'].sum() * credit_hours
+                total_credits += len(valid) * credit_hours
+        return total_points / total_credits if total_credits > 0 else None
 
     def get_summary_statistics(self):
         """
@@ -244,77 +273,18 @@ class GPAProcessor:
     def select_run(self, run_file_name):
         """
         Filter group and section data based on the selected run file.
+        This version resets the group and section data from the original copies,
+        ensuring that each run selection starts with the full dataset.
         """
         if run_file_name not in self.run_dfs:
             raise ValueError(f"Run file '{run_file_name}' not found.")
         run_df = self.run_dfs[run_file_name]
         valid_groups = set(run_df['Group'].tolist())
-        self.group_dfs = {key: df for key, df in self.group_dfs.items()
+        
+        # Reset group and section data from original copies
+        self.group_dfs = {key: df for key, df in self.all_group_dfs.items()
                           if df['Group Name'].iloc[0] in valid_groups}
         valid_sections = set()
         for df in self.group_dfs.values():
             valid_sections.update(df['Section'].tolist())
-        self.section_dfs = {sec: df for sec, df in self.section_dfs.items() if sec in valid_sections}
-
-    def export_section_data(self, filepath):
-        """Export section data to a CSV file"""
-        if not self.section_dfs:
-            return False
-            
-        # Create a DataFrame with all section data for export
-        export_data = []
-        for section_name, df in self.section_dfs.items():
-            distribution = self.get_grade_distribution(section_name)
-            gpa = self.section_gpas.get(section_name)
-            row = {
-                'Section Name': section_name,
-                'GPA': gpa if gpa is not None else 'N/A'
-            }
-            # Add grade distribution
-            for grade, count in distribution.items():
-                row[grade] = count
-                
-            export_data.append(row)
-        
-        # Convert to DataFrame and export
-        export_df = pd.DataFrame(export_data)
-        export_df.to_csv(filepath, index=False)
-        return True
-
-    def export_group_data(self, filepath):
-        """Export group data to a CSV file"""
-        if not self.group_dfs:
-            return False
-            
-        export_data = []
-        for group_name, df in self.group_dfs.items():
-            sections = df['Section'].tolist()
-            group_data = {
-                'Group Name': df['Group Name'].iloc[0] if 'Group Name' in df.columns else group_name,
-                'GPA': self.group_gpas.get(group_name) if self.group_gpas.get(group_name) is not None else 'N/A',
-                'Sections': ', '.join(sections)
-            }
-            export_data.append(group_data)
-        
-        export_df = pd.DataFrame(export_data)
-        export_df.to_csv(filepath, index=False)
-        return True
-
-    def export_student_list(self, filepath, list_type='good'):
-        """Export good or work list to a CSV file"""
-        student_list = self.good_list if list_type == 'good' else self.work_list
-        if not student_list:
-            return False
-            
-        export_data = []
-        for student_id, info in student_list.items():
-            student_data = {
-                'Student Name': info['name'],
-                'Student ID': student_id,
-                'Classes': ', '.join(info['classes'])
-            }
-            export_data.append(student_data)
-        
-        export_df = pd.DataFrame(export_data)
-        export_df.to_csv(filepath, index=False)
-        return True
+        self.section_dfs = {sec: df for sec, df in self.all_section_dfs.items() if sec in valid_sections}
