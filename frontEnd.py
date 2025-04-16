@@ -326,11 +326,11 @@ class GPAAnalysisApp:
 
     def setup_good_list_tab(self):
         self.create_student_list_tab(self.tabs["Good List"], "Students with A Grades",
-                                     ["Student Name", "ID", "Sections"])
+                                     ["Student Name", "ID", "GPA", "Z-Score", "Sections"])
 
     def setup_bad_list_tab(self):
         self.create_student_list_tab(self.tabs["Work List"], "Students Needing Support",
-                                     ["Student Name", "ID", "Sections"])
+                                     ["Student Name", "ID", "GPA", "Z-Score", "Sections"])
 
     def create_student_list_tab(self, tab, title, columns):
         header_frame = tk.Frame(tab, bg="#2A2A2A")
@@ -346,12 +346,17 @@ class GPAAnalysisApp:
                               bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
         
+        # Updated columns to include GPA and Z-Score
+        columns = ["Student Name", "ID", "GPA", "Z-Score", "Sections"]
+        
         table = ttk.Treeview(tab, columns=columns, show="headings", height=20)
         for col in columns:
             table.heading(col, text=col)
         table.column(columns[0], width=200, anchor="w")
-        table.column(columns[1], width=100, anchor="center")
-        table.column(columns[2], width=400, anchor="w")
+        table.column(columns[1], width=80, anchor="center")
+        table.column(columns[2], width=80, anchor="center")
+        table.column(columns[3], width=80, anchor="center")
+        table.column(columns[4], width=360, anchor="w")
         scrollbar = ttk.Scrollbar(tab, orient="vertical", command=table.yview)
         table.configure(yscrollcommand=scrollbar.set)
         table.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=10)
@@ -368,7 +373,15 @@ class GPAAnalysisApp:
         if not good_list:
             return
         for student_id, info in good_list.items():
-            row_data = [info['name'], student_id, ", ".join(info['classes'])]
+            gpa_text = f"{info.get('gpa', 'N/A'):.2f}" if info.get('gpa') is not None else "N/A"
+            z_score_text = f"{info.get('z_score', 'N/A'):.2f}" if info.get('z_score') is not None else "N/A"
+            row_data = [
+                info['name'], 
+                student_id, 
+                gpa_text,
+                z_score_text,
+                ", ".join(info['classes'])
+            ]
             self.good_list_table.insert("", "end", values=row_data)
 
     def update_work_list(self):
@@ -378,7 +391,15 @@ class GPAAnalysisApp:
         if not work_list:
             return
         for student_id, info in work_list.items():
-            row_data = [info['name'], student_id, ", ".join(info['classes'])]
+            gpa_text = f"{info.get('gpa', 'N/A'):.2f}" if info.get('gpa') is not None else "N/A"
+            z_score_text = f"{info.get('z_score', 'N/A'):.2f}" if info.get('z_score') is not None else "N/A"
+            row_data = [
+                info['name'], 
+                student_id, 
+                gpa_text,
+                z_score_text,
+                ", ".join(info['classes'])
+            ]
             self.work_list_table.insert("", "end", values=row_data)
 
     def export_to_csv(self, data_type):

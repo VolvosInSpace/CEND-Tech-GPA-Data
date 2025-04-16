@@ -42,6 +42,9 @@ class GPAProcessor:
         self.all_section_dfs = {}
         self.all_group_dfs = {}
 
+        self.student_gpas = {}  # Store GPAs for each student
+        self.student_z_scores = {}  # Store z-scores for students
+
     def load_files_to_dataframes(self, directory):
         """
         Load all .run, .grp, .sec, and .runthis files from the specified directory.
@@ -186,23 +189,40 @@ class GPAProcessor:
     def populate_good_work_lists(self):
         """
         Create lists of students with A grades (Good List) and D/F grades (Work List).
+        Now includes student GPA and z-score information.
         """
+        # Calculate student GPAs and z-scores before populating the lists
+        self.calculate_student_data()
+        
         self.good_list = {}
         self.work_list = {}
         
         for section_name, df in self.section_dfs.items():
             for _, student in df.iterrows():
                 name, student_id, grade = student['Name'], student['ID'], student['Grade']
+                gpa = self.student_gpas.get(student_id)
+                z_score = self.student_z_scores.get(student_id)
+                
                 if grade == 'A':   
                     if student_id in self.good_list:
                         self.good_list[student_id]['classes'].append(section_name)
                     else:
-                        self.good_list[student_id] = {'name': name, 'classes': [section_name]}
+                        self.good_list[student_id] = {
+                            'name': name, 
+                            'classes': [section_name],
+                            'gpa': gpa,
+                            'z_score': z_score
+                        }
                 elif grade in ['F', 'D+', 'D', 'D-']:
                     if student_id in self.work_list:
                         self.work_list[student_id]['classes'].append(section_name)
                     else:
-                        self.work_list[student_id] = {'name': name, 'classes': [section_name]}
+                        self.work_list[student_id] = {
+                            'name': name, 
+                            'classes': [section_name],
+                            'gpa': gpa,
+                            'z_score': z_score
+                        }
         return self.good_list, self.work_list
 
     def get_grade_distribution(self, section_name):
@@ -395,6 +415,8 @@ class GPAProcessor:
             student_data = {
                 'Student Name': info['name'],
                 'Student ID': student_id,
+                'GPA': f"{info.get('gpa', 'N/A'):.2f}" if info.get('gpa') is not None else 'N/A',
+                'Z-Score': f"{info.get('z_score', 'N/A'):.2f}" if info.get('z_score') is not None else 'N/A',
                 'Classes': ', '.join(info['classes'])
             }
             export_data.append(student_data)
@@ -402,3 +424,58 @@ class GPAProcessor:
         export_df = pd.DataFrame(export_data)
         export_df.to_csv(filepath, index=False)
         return True
+
+    def calculate_student_data(self):
+        """
+        Calculate GPA for each student across all sections they're enrolled in,
+        then calculate z-scores based on those GPAs.
+        """
+        # Student data tracking
+        student_grades = {}  # {student_id: {credits_total: X, points_total: Y}}
+        
+        for section_name, df in self.section_dfs.items():
+            credit_hours = self.section_credit_hours.get(section_name, 3.0)
+            for _, row in df.iterrows():
+                student_id = row['ID']
+                grade = row['Numeric Grade']
+                
+                if pd.isna(grade):  # Skip non-graded entries (like W, P/NP)
+                    continue
+                    
+                if student_id not in student_grades:
+                    student_grades[student_id] = {'credits_total': 0, 'points_total': 0}
+                
+                student_grades[student_id]['credits_total'] += credit_hours
+                student_grades[student_id]['points_total'] += grade * credit_hours
+        
+        # Calculate GPA for each student
+        self.student_gpas = {}
+        for student_id, data in student_grades.items():
+            if data['credits_total'] > 0:
+                self.student_gpas[student_id] = data['points_total'] / data['credits_total']
+        
+        # Calculate z-scores for students
+        self.calculate_student_z_scores()
+
+    def calculate_student_z_scores(self):
+        """
+        Calculate z-scores for student GPAs.
+        """
+        gpas = list(self.student_gpas.values())
+        if not gpas:
+            return
+            
+        mean = sum(gpas) / len(gpas)
+        std_dev = (sum((x - mean) ** 2 for x in gpas) / len(gpas)) ** 0.5
+        
+        if std_dev > 0:  # Avoid division by zero
+            self.student_z_scores = {
+                student_id: (gpa - mean) / std_dev 
+                for student_id, gpa in self.student_gpas.items()
+            }
+        else:
+            # If all GPAs are identical, z-score is 0
+            self.student_z_scores = {
+                student_id: 0.0
+                for student_id in self.student_gpas
+            }
