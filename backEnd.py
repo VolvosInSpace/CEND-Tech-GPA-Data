@@ -1,7 +1,5 @@
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 
 # Grade mapping for GPA calculation
 GRADE_MAP = {
@@ -41,9 +39,6 @@ class GPAProcessor:
         # These will store the original data for re-filtering on run selection
         self.all_section_dfs = {}
         self.all_group_dfs = {}
-
-        self.student_gpas = {}  # Store GPAs for each student
-        self.student_z_scores = {}  # Store z-scores for students
 
     def load_files_to_dataframes(self, directory):
         """
@@ -189,40 +184,23 @@ class GPAProcessor:
     def populate_good_work_lists(self):
         """
         Create lists of students with A grades (Good List) and D/F grades (Work List).
-        Now includes student GPA and z-score information.
         """
-        # Calculate student GPAs and z-scores before populating the lists
-        self.calculate_student_data()
-        
         self.good_list = {}
         self.work_list = {}
         
         for section_name, df in self.section_dfs.items():
             for _, student in df.iterrows():
                 name, student_id, grade = student['Name'], student['ID'], student['Grade']
-                gpa = self.student_gpas.get(student_id)
-                z_score = self.student_z_scores.get(student_id)
-                
                 if grade == 'A':   
                     if student_id in self.good_list:
                         self.good_list[student_id]['classes'].append(section_name)
                     else:
-                        self.good_list[student_id] = {
-                            'name': name, 
-                            'classes': [section_name],
-                            'gpa': gpa,
-                            'z_score': z_score
-                        }
+                        self.good_list[student_id] = {'name': name, 'classes': [section_name]}
                 elif grade in ['F', 'D+', 'D', 'D-']:
                     if student_id in self.work_list:
                         self.work_list[student_id]['classes'].append(section_name)
                     else:
-                        self.work_list[student_id] = {
-                            'name': name, 
-                            'classes': [section_name],
-                            'gpa': gpa,
-                            'z_score': z_score
-                        }
+                        self.work_list[student_id] = {'name': name, 'classes': [section_name]}
         return self.good_list, self.work_list
 
     def get_grade_distribution(self, section_name):
@@ -316,26 +294,6 @@ class GPAProcessor:
             'overall_gpa': self.get_overall_gpa()
         }
 
-    def create_gpa_histogram(self, figsize=(6, 4), bg_color='#2A2A2A'):
-        """
-        Create a histogram of section GPAs.
-        """
-        fig = Figure(figsize=figsize, facecolor=bg_color)
-        ax = fig.add_subplot(111)
-        ax.set_facecolor(bg_color)
-        gpas = [gpa for gpa in self.section_gpas.values() if gpa is not None]
-        if gpas:
-            ax.hist(gpas, bins=8, range=(0, 4), color='#4CAF50', edgecolor='white')
-            ax.set_title('GPA Distribution', color='white')
-            ax.set_xlabel('GPA', color='white')
-            ax.set_ylabel('Number of Sections', color='white')
-            ax.tick_params(colors='white')
-            ax.spines['bottom'].set_color('white')
-            ax.spines['top'].set_color('white')
-            ax.spines['left'].set_color('white')
-            ax.spines['right'].set_color('white')
-        return fig
-
     def select_run(self, run_file_name):
         """
         Filter group and section data based on the selected run file.
@@ -415,8 +373,6 @@ class GPAProcessor:
             student_data = {
                 'Student Name': info['name'],
                 'Student ID': student_id,
-                'GPA': f"{info.get('gpa', 'N/A'):.2f}" if info.get('gpa') is not None else 'N/A',
-                'Z-Score': f"{info.get('z_score', 'N/A'):.2f}" if info.get('z_score') is not None else 'N/A',
                 'Classes': ', '.join(info['classes'])
             }
             export_data.append(student_data)
@@ -424,58 +380,3 @@ class GPAProcessor:
         export_df = pd.DataFrame(export_data)
         export_df.to_csv(filepath, index=False)
         return True
-
-    def calculate_student_data(self):
-        """
-        Calculate GPA for each student across all sections they're enrolled in,
-        then calculate z-scores based on those GPAs.
-        """
-        # Student data tracking
-        student_grades = {}  # {student_id: {credits_total: X, points_total: Y}}
-        
-        for section_name, df in self.section_dfs.items():
-            credit_hours = self.section_credit_hours.get(section_name, 3.0)
-            for _, row in df.iterrows():
-                student_id = row['ID']
-                grade = row['Numeric Grade']
-                
-                if pd.isna(grade):  # Skip non-graded entries (like W, P/NP)
-                    continue
-                    
-                if student_id not in student_grades:
-                    student_grades[student_id] = {'credits_total': 0, 'points_total': 0}
-                
-                student_grades[student_id]['credits_total'] += credit_hours
-                student_grades[student_id]['points_total'] += grade * credit_hours
-        
-        # Calculate GPA for each student
-        self.student_gpas = {}
-        for student_id, data in student_grades.items():
-            if data['credits_total'] > 0:
-                self.student_gpas[student_id] = data['points_total'] / data['credits_total']
-        
-        # Calculate z-scores for students
-        self.calculate_student_z_scores()
-
-    def calculate_student_z_scores(self):
-        """
-        Calculate z-scores for student GPAs.
-        """
-        gpas = list(self.student_gpas.values())
-        if not gpas:
-            return
-            
-        mean = sum(gpas) / len(gpas)
-        std_dev = (sum((x - mean) ** 2 for x in gpas) / len(gpas)) ** 0.5
-        
-        if std_dev > 0:  # Avoid division by zero
-            self.student_z_scores = {
-                student_id: (gpa - mean) / std_dev 
-                for student_id, gpa in self.student_gpas.items()
-            }
-        else:
-            # If all GPAs are identical, z-score is 0
-            self.student_z_scores = {
-                student_id: 0.0
-                for student_id in self.student_gpas
-            }
