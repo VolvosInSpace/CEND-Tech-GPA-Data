@@ -166,8 +166,8 @@ class GPAAnalysisApp:
             # Populate the run file combobox with keys from run_dfs
             run_files = list(self.processor.run_dfs.keys())
             print("DEBUG: Run files loaded:", run_files)
-            self.run_file_combobox['values'] = ["All Runs"] + run_files  # Add "All Runs" option
-            self.run_file_combobox.current(0)  # Set "All Runs" as the default selection
+            self.run_file_combobox['values'] = ["ALLFILES"] + run_files  
+            self.run_file_combobox.current(0)  
             self.status_label.config(text=f"Processed {file_count} files successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"Error processing files: {str(e)}")
@@ -179,7 +179,7 @@ class GPAAnalysisApp:
             messagebox.showwarning("Warning", "Please select a run file from the dropdown.")
             return
         try:
-            if selected_run == "All Runs":
+            if selected_run == "ALLFILES":
                 # Reset to include all data
                 self.processor.section_dfs = self.processor.all_section_dfs.copy()
                 self.processor.group_dfs = self.processor.all_group_dfs.copy()
@@ -241,18 +241,35 @@ class GPAAnalysisApp:
                               bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
         
+        # Create a container frame for the table and scrollbars
+        table_frame = tk.Frame(tab, bg="#2A2A2A")
+        table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
         # Detailed grade distribution columns with Z-Score added
         columns = ["Section Name", "GPA", "Z-Score", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"]
-        self.section_table = ttk.Treeview(tab, columns=columns, show="headings", height=20)
+        self.section_table = ttk.Treeview(table_frame, columns=columns, show="headings", height=20)
         for col in columns:
             self.section_table.heading(col, text=col)
             self.section_table.column(col, width=80, anchor="center")
         self.section_table.column("Section Name", width=150, anchor="w")
         self.section_table.column("Z-Score", width=80, anchor="center")
-        scrollbar = ttk.Scrollbar(tab, orient="vertical", command=self.section_table.yview)
-        self.section_table.configure(yscrollcommand=scrollbar.set)
-        self.section_table.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=10)
-        scrollbar.pack(side="right", fill="y", padx=(0, 20), pady=10)
+        
+        # Create vertical scrollbar
+        y_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.section_table.yview)
+        self.section_table.configure(yscrollcommand=y_scrollbar.set)
+        
+        # Create horizontal scrollbar
+        x_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=self.section_table.xview)
+        self.section_table.configure(xscrollcommand=x_scrollbar.set)
+        
+        # Place the treeview and scrollbars in the frame using grid
+        self.section_table.grid(row=0, column=0, sticky='nsew')
+        y_scrollbar.grid(row=0, column=1, sticky='ns')
+        x_scrollbar.grid(row=1, column=0, sticky='ew')
+        
+        # Configure the table_frame grid
+        table_frame.rowconfigure(0, weight=1)
+        table_frame.columnconfigure(0, weight=1)
 
     def update_section_data(self):
         for item in self.section_table.get_children():
@@ -293,11 +310,15 @@ class GPAAnalysisApp:
         self.group_overall_label.pack(side="left", padx=20)
         
         export_btn = tk.Button(header_frame, text="Export to CSV", 
-                            command=lambda: self.export_to_csv("Group Data"),
-                            bg="#4CAF50", fg="white", font=("Arial", 10))
+                        command=lambda: self.export_to_csv("Group Data"),
+                        bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
         
-        self.group_table = ttk.Treeview(frame, columns=["Group Name", "GPA", "Z-Score", "Sections"],
+        # Create a container frame for the table and scrollbars
+        table_frame = tk.Frame(frame, bg="#2A2A2A")
+        table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        self.group_table = ttk.Treeview(table_frame, columns=["Group Name", "GPA", "Z-Score", "Sections"],
                                         show="headings", height=10)
         self.group_table.heading("Group Name", text="Group Name")
         self.group_table.heading("GPA", text="GPA")
@@ -307,10 +328,23 @@ class GPAAnalysisApp:
         self.group_table.column("GPA", width=100, anchor="center")
         self.group_table.column("Z-Score", width=100, anchor="center")
         self.group_table.column("Sections", width=400, anchor="w")
-        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.group_table.yview)
-        self.group_table.configure(yscrollcommand=scrollbar.set)
-        self.group_table.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=10)
-        scrollbar.pack(side="right", fill="y", padx=(0, 20), pady=10)
+        
+        # Create vertical scrollbar
+        y_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.group_table.yview)
+        self.group_table.configure(yscrollcommand=y_scrollbar.set)
+        
+        # Create horizontal scrollbar
+        x_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=self.group_table.xview)
+        self.group_table.configure(xscrollcommand=x_scrollbar.set)
+        
+        # Place the treeview and scrollbars in the frame using grid
+        self.group_table.grid(row=0, column=0, sticky='nsew')
+        y_scrollbar.grid(row=0, column=1, sticky='ns')
+        x_scrollbar.grid(row=1, column=0, sticky='ew')
+        
+        # Configure the table_frame grid
+        table_frame.rowconfigure(0, weight=1)
+        table_frame.columnconfigure(0, weight=1)
 
     def update_group_data(self):
         for item in self.group_table.get_children():
@@ -405,13 +439,25 @@ class GPAAnalysisApp:
         header_frame = tk.Frame(tab, bg="#2A2A2A")
         header_frame.pack(fill="x", pady=10)
         
-        tk.Label(header_frame, text="Student History Analysiss", font=("Arial", 18, "bold"),
+        tk.Label(header_frame, text="Student History Analysis", font=("Arial", 18, "bold"),
                  fg="white", bg="#2A2A2A").pack(side="left", padx=20)
                  
         export_btn = tk.Button(header_frame, text="Export to CSV", 
                               command=lambda: self.export_to_csv("History"),
                               bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
+        
+        # Add warning banner frame (hidden by default)
+        self.history_warning_frame = tk.Frame(tab, bg="#FFF3CD", padx=10, pady=10)
+        self.history_warning_label = tk.Label(
+            self.history_warning_frame,
+            text="Please select 'ALLFILES' filter on the Dashboard to view student history data",
+            font=("Arial", 12, "bold"),
+            bg="#FFF3CD",
+            fg="#856404"
+        )
+        self.history_warning_label.pack(fill="x", expand=True)
+        # Don't pack the frame yet - we'll show/hide it as needed
         
         # Create a container frame for the table and scrollbars
         table_frame = tk.Frame(tab, bg="#2A2A2A")
@@ -469,12 +515,21 @@ class GPAAnalysisApp:
         # Clear existing data
         for item in self.history_table.get_children():
             self.history_table.delete(item)
-            
+        
+        # Check if a specific run filter is applied (not ALLFILES)
+        current_run = self.run_file_combobox.get()
+        if current_run != "ALLFILES" and current_run != "":
+            # Show warning banner
+            self.history_warning_frame.pack(fill="x", padx=20, pady=(0, 10), before=self.history_table.master)
+        else:
+            # Hide warning banner if it's visible
+            self.history_warning_frame.pack_forget()
+                
         # Get history data from processor
         history_data = self.processor.get_history_summary()
         if not history_data:
             return
-            
+                
         # Populate the table
         for student_id, info in history_data.items():
             # Get student's classes and grades
@@ -487,7 +542,7 @@ class GPAAnalysisApp:
             row_data = [
                 info['name'],
                 student_id,
-                gpa_text,  # Add GPA
+                gpa_text,
                 "✓" if info['repeat_good'] else "",
                 "✓" if info['repeat_work'] else "",
                 "✓" if info['mixed'] else "",

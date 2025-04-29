@@ -157,38 +157,62 @@ class GPAProcessor:
         Z-score represents how many standard deviations a GPA is from the mean.
         """
         # Calculate z-scores for sections
-        section_gpas = [gpa for gpa in self.section_gpas.values() if gpa is not None]
-        if section_gpas:
-            mean = sum(section_gpas) / len(section_gpas)
-            std_dev = (sum((x - mean) ** 2 for x in section_gpas) / len(section_gpas)) ** 0.5
-            if std_dev > 0:  # Avoid division by zero
-                self.section_z_scores = {name: (gpa - mean) / std_dev 
-                                        for name, gpa in self.section_gpas.items() 
-                                        if gpa is not None}
-            else:
-                # If all GPAs are the same, z-score is 0
-                self.section_z_scores = {name: 0.0 
-                                        for name, gpa in self.section_gpas.items() 
-                                        if gpa is not None}
-        else:
-            self.section_z_scores = {}
+        # Only consider sections that are currently in section_dfs (after filtering)
+        filtered_section_gpas = [self.section_gpas[name] for name in self.section_dfs.keys() 
+                               if name in self.section_gpas and self.section_gpas[name] is not None]
         
-        # Calculate z-scores for groups
-        group_gpas = [gpa for gpa in self.group_gpas.values() if gpa is not None]
-        if group_gpas:
-            mean = sum(group_gpas) / len(group_gpas)
-            std_dev = (sum((x - mean) ** 2 for x in group_gpas) / len(group_gpas)) ** 0.5
-            if std_dev > 0:  # Avoid division by zero
-                self.group_z_scores = {name: (gpa - mean) / std_dev 
-                                    for name, gpa in self.group_gpas.items() 
-                                    if gpa is not None}
+        # Reset section z-scores dictionary
+        self.section_z_scores = {}
+        
+        if filtered_section_gpas:
+            if len(filtered_section_gpas) == 1:
+                # If there's only one section, z-score is 0
+                for name in self.section_dfs.keys():
+                    if name in self.section_gpas and self.section_gpas[name] is not None:
+                        self.section_z_scores[name] = 0.0
             else:
-                # If all GPAs are the same, z-score is 0
-                self.group_z_scores = {name: 0.0 
-                                    for name, gpa in self.group_gpas.items() 
-                                    if gpa is not None}
-        else:
-            self.group_z_scores = {}
+                # Normal z-score calculation for multiple sections
+                mean = sum(filtered_section_gpas) / len(filtered_section_gpas)
+                std_dev = (sum((x - mean) ** 2 for x in filtered_section_gpas) / len(filtered_section_gpas)) ** 0.5
+                
+                if std_dev > 0:  # Avoid division by zero
+                    for name in self.section_dfs.keys():
+                        if name in self.section_gpas and self.section_gpas[name] is not None:
+                            self.section_z_scores[name] = (self.section_gpas[name] - mean) / std_dev
+                else:
+                    # If all GPAs are the same, z-score is 0
+                    for name in self.section_dfs.keys():
+                        if name in self.section_gpas and self.section_gpas[name] is not None:
+                            self.section_z_scores[name] = 0.0
+        
+        # Calculate z-scores for groups (keeping the fixed code we already provided)
+        # Only consider groups that are currently in group_dfs (after filtering)
+        filtered_group_gpas = [self.group_gpas[name] for name in self.group_dfs.keys() 
+                              if name in self.group_gpas and self.group_gpas[name] is not None]
+        
+        # Reset group z-scores dictionary
+        self.group_z_scores = {}
+        
+        if filtered_group_gpas:
+            if len(filtered_group_gpas) == 1:
+                # If there's only one group, z-score is 0
+                for name in self.group_dfs.keys():
+                    if name in self.group_gpas and self.group_gpas[name] is not None:
+                        self.group_z_scores[name] = 0.0
+            else:
+                # Normal z-score calculation for multiple groups
+                mean = sum(filtered_group_gpas) / len(filtered_group_gpas)
+                std_dev = (sum((x - mean) ** 2 for x in filtered_group_gpas) / len(filtered_group_gpas)) ** 0.5
+                
+                if std_dev > 0:  # Avoid division by zero
+                    for name in self.group_dfs.keys():
+                        if name in self.group_gpas and self.group_gpas[name] is not None:
+                            self.group_z_scores[name] = (self.group_gpas[name] - mean) / std_dev
+                else:
+                    # If all GPAs are the same, z-score is 0
+                    for name in self.group_dfs.keys():
+                        if name in self.group_gpas and self.group_gpas[name] is not None:
+                            self.group_z_scores[name] = 0.0
 
     def populate_good_work_lists(self):
         """
