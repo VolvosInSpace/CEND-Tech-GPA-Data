@@ -357,16 +357,23 @@ class GPAAnalysisApp:
         groups_data = self.processor.get_all_groups_data()
         if not groups_data:
             return
+        max_len = 0
         for group in groups_data:
             gpa_text = f"{group['gpa']:.2f}" if group['gpa'] is not None else "N/A"
             z_score_text = f"{group['z_score']:.2f}" if group['z_score'] is not None else "N/A"
+            sections_str = ", ".join(group['sections'])
+            if len(sections_str) > max_len:
+                max_len = len(sections_str)
             row_data = [
                 group['name'],
                 gpa_text,
                 z_score_text,
-                ", ".join(group['sections'])
+                sections_str
             ]
             self.group_table.insert("", "end", values=row_data)
+        min_width = 400
+        new_width = max(min_width, min(2000, max_len * 7))
+        self.group_table.column("Sections", width=new_width)
 
     def setup_good_list_tab(self):
         self.create_student_list_tab(self.tabs["Good List"], "Students with A Grades",
@@ -412,13 +419,18 @@ class GPAAnalysisApp:
         good_list = self.processor.good_list
         if not good_list:
             return
+        max_len = 0
         for student_id, info in good_list.items():
-            # Calculate student GPA
             gpa = self.processor.get_student_gpa(student_id)
             gpa_text = f"{gpa:.2f}" if gpa is not None else "N/A"
-            
-            row_data = [info['name'], student_id, gpa_text, ", ".join(info['classes'])]
+            sections_str = ", ".join(info['classes'])
+            if len(sections_str) > max_len:
+                max_len = len(sections_str)
+            row_data = [info['name'], student_id, gpa_text, sections_str]
             self.good_list_table.insert("", "end", values=row_data)
+        min_width = 400
+        new_width = max(min_width, min(2000, max_len * 7))
+        self.good_list_table.column("Sections", width=new_width)
 
     def update_work_list(self):
         for item in self.work_list_table.get_children():
@@ -426,13 +438,18 @@ class GPAAnalysisApp:
         work_list = self.processor.work_list
         if not work_list:
             return
+        max_len = 0
         for student_id, info in work_list.items():
-            # Calculate student GPA
             gpa = self.processor.get_student_gpa(student_id)
             gpa_text = f"{gpa:.2f}" if gpa is not None else "N/A"
-            
-            row_data = [info['name'], student_id, gpa_text, ", ".join(info['classes'])]
+            sections_str = ", ".join(info['classes'])
+            if len(sections_str) > max_len:
+                max_len = len(sections_str)
+            row_data = [info['name'], student_id, gpa_text, sections_str]
             self.work_list_table.insert("", "end", values=row_data)
+        min_width = 400
+        new_width = max(min_width, min(2000, max_len * 7))
+        self.work_list_table.column("Sections", width=new_width)
 
     def setup_history_tab(self):
         tab = self.tabs["History"]
@@ -531,14 +548,15 @@ class GPAAnalysisApp:
             return
                 
         # Populate the table
+        max_len = 0
         for student_id, info in history_data.items():
             # Get student's classes and grades
             classes_grades = self.get_student_classes_and_grades(student_id)
-            
+            if len(classes_grades) > max_len:
+                max_len = len(classes_grades)
             # Calculate student GPA
             gpa = self.processor.get_student_gpa(student_id)
             gpa_text = f"{gpa:.2f}" if gpa is not None else "N/A"
-            
             row_data = [
                 info['name'],
                 student_id,
@@ -549,6 +567,12 @@ class GPAAnalysisApp:
                 classes_grades
             ]
             self.history_table.insert("", "end", values=row_data)
+
+        # Dynamically set column width based on max content length (approximate)
+        # 7 pixels per character is a rough estimate; adjust as needed
+        min_width = 500
+        new_width = max(min_width, min(2000, max_len * 7))
+        self.history_table.column("Classes and Grades", width=new_width)
 
     def get_student_classes_and_grades(self, student_id):
         """Get a formatted string of classes and grades for a student"""
