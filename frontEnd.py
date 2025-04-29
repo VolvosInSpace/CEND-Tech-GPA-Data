@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import os
+import csv
 
 from backEnd import GPAProcessor
 
@@ -619,13 +620,30 @@ class GPAAnalysisApp:
             if data_type == "Section Data":
                 success = self.processor.export_section_data(filepath)
             elif data_type == "Group Data":
-                success = self.processor.export_group_data(filepath)
+                # Export exactly what's in the group_table
+                columns = ["Group Name", "GPA", "Z-Score", "Sections"]
+                self.export_treeview_to_csv(self.group_table, filepath, columns)
+                success = True
             elif data_type == "Good List":
-                success = self.processor.export_student_list(filepath, list_type='good')
+                columns = ["Student Name", "ID", "GPA", "Sections"]
+                self.export_treeview_to_csv(self.good_list_table, filepath, columns)
+                success = True
             elif data_type == "Work List":
-                success = self.processor.export_student_list(filepath, list_type='work')
+                columns = ["Student Name", "ID", "GPA", "Sections"]
+                self.export_treeview_to_csv(self.work_list_table, filepath, columns)
+                success = True
             elif data_type == "History":
-                success = self.processor.export_history_data(filepath)
+                columns = [
+                    "Student Name", 
+                    "ID",
+                    "GPA",
+                    "Good List Multiple Times", 
+                    "Work List Multiple Times", 
+                    "Both Lists",
+                    "Classes and Grades"
+                ]
+                self.export_treeview_to_csv(self.history_table, filepath, columns)
+                success = True
             else:
                 messagebox.showerror("Error", f"Unknown data type: {data_type}")
                 return
@@ -636,6 +654,15 @@ class GPAAnalysisApp:
                 messagebox.showwarning("No Data", f"No {data_type.lower()} available to export.")
         except Exception as e:
             messagebox.showerror("Export Error", f"Error exporting data: {str(e)}")
+
+    def export_treeview_to_csv(self, treeview, filepath, columns):
+        """Export the visible data in a Treeview to a CSV file."""
+        with open(filepath, "w", newline='', encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(columns)
+            for row_id in treeview.get_children():
+                row = treeview.item(row_id)['values']
+                writer.writerow(row)
 
 if __name__ == "__main__":
     root = tk.Tk()
