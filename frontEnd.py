@@ -187,12 +187,15 @@ class GPAAnalysisApp:
                 self.processor.select_run(selected_run)
             
             self.processor.calculate_all_gpas()
+            # Add this line to rebuild good_list and work_list after selection
+            self.processor.populate_good_work_lists()
+            
             # Update all relevant pages with filtered data
             self.update_section_data()
             self.update_group_data()
             self.update_good_list()
             self.update_work_list()
-            self.update_history_data()  # Add this line
+            self.update_history_data()
             self.update_summary()
             self.status_label.config(text=f"Run file '{selected_run}' applied successfully!")
         except Exception as e:
@@ -333,11 +336,11 @@ class GPAAnalysisApp:
 
     def setup_good_list_tab(self):
         self.create_student_list_tab(self.tabs["Good List"], "Students with A Grades",
-                                     ["Student Name", "ID", "Sections"])
+                                ["Student Name", "ID", "GPA", "Sections"])
 
     def setup_bad_list_tab(self):
         self.create_student_list_tab(self.tabs["Work List"], "Students Needing Support",
-                                     ["Student Name", "ID", "Sections"])
+                                ["Student Name", "ID", "GPA", "Sections"])
 
     def create_student_list_tab(self, tab, title, columns):
         header_frame = tk.Frame(tab, bg="#2A2A2A")
@@ -358,7 +361,8 @@ class GPAAnalysisApp:
             table.heading(col, text=col)
         table.column(columns[0], width=200, anchor="w")
         table.column(columns[1], width=100, anchor="center")
-        table.column(columns[2], width=400, anchor="w")
+        table.column(columns[2], width=100, anchor="center")  # GPA column
+        table.column(columns[3], width=400, anchor="w")       # Sections column
         scrollbar = ttk.Scrollbar(tab, orient="vertical", command=table.yview)
         table.configure(yscrollcommand=scrollbar.set)
         table.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=10)
@@ -375,7 +379,11 @@ class GPAAnalysisApp:
         if not good_list:
             return
         for student_id, info in good_list.items():
-            row_data = [info['name'], student_id, ", ".join(info['classes'])]
+            # Calculate student GPA
+            gpa = self.processor.get_student_gpa(student_id)
+            gpa_text = f"{gpa:.2f}" if gpa is not None else "N/A"
+            
+            row_data = [info['name'], student_id, gpa_text, ", ".join(info['classes'])]
             self.good_list_table.insert("", "end", values=row_data)
 
     def update_work_list(self):
@@ -385,7 +393,11 @@ class GPAAnalysisApp:
         if not work_list:
             return
         for student_id, info in work_list.items():
-            row_data = [info['name'], student_id, ", ".join(info['classes'])]
+            # Calculate student GPA
+            gpa = self.processor.get_student_gpa(student_id)
+            gpa_text = f"{gpa:.2f}" if gpa is not None else "N/A"
+            
+            row_data = [info['name'], student_id, gpa_text, ", ".join(info['classes'])]
             self.work_list_table.insert("", "end", values=row_data)
 
     def setup_history_tab(self):
@@ -393,7 +405,7 @@ class GPAAnalysisApp:
         header_frame = tk.Frame(tab, bg="#2A2A2A")
         header_frame.pack(fill="x", pady=10)
         
-        tk.Label(header_frame, text="Student History Analysis", font=("Arial", 18, "bold"),
+        tk.Label(header_frame, text="Student History Analysiss", font=("Arial", 18, "bold"),
                  fg="white", bg="#2A2A2A").pack(side="left", padx=20)
                  
         export_btn = tk.Button(header_frame, text="Export to CSV", 
@@ -405,14 +417,15 @@ class GPAAnalysisApp:
         table_frame = tk.Frame(tab, bg="#2A2A2A")
         table_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
-        # Create a single table with columns for name, ID, the three pattern types, and classes/grades
+        # Create a single table with columns for name, ID, GPA, the three pattern types, and classes/grades
         columns = [
             "Student Name", 
-            "ID", 
+            "ID",
+            "GPA",  # Add GPA column
             "Good List Multiple Times", 
             "Work List Multiple Times", 
             "Both Lists",
-            "Classes and Grades"  # New column
+            "Classes and Grades"
         ]
         
         self.history_table = ttk.Treeview(table_frame, columns=columns, show="headings", height=20)
@@ -420,25 +433,32 @@ class GPAAnalysisApp:
         # Set up columns with appropriate widths
         self.history_table.heading("Student Name", text="Student Name")
         self.history_table.heading("ID", text="ID")
+        self.history_table.heading("GPA", text="GPA")  # Add GPA heading
         self.history_table.heading("Good List Multiple Times", text="Good List Multiple Times")
         self.history_table.heading("Work List Multiple Times", text="Work List Multiple Times")
         self.history_table.heading("Both Lists", text="Both Lists")
-        self.history_table.heading("Classes and Grades", text="Classes and Grades")  # New heading
+        self.history_table.heading("Classes and Grades", text="Classes and Grades")
         
         self.history_table.column("Student Name", width=200, anchor="w")
         self.history_table.column("ID", width=100, anchor="center")
+        self.history_table.column("GPA", width=80, anchor="center")  # Add GPA column
         self.history_table.column("Good List Multiple Times", width=150, anchor="center")
         self.history_table.column("Work List Multiple Times", width=150, anchor="center")
         self.history_table.column("Both Lists", width=150, anchor="center")
-        self.history_table.column("Classes and Grades", width=600, anchor="w")  # Increased width from 300 to 600
-    
+        self.history_table.column("Classes and Grades", width=500, anchor="w", stretch=tk.YES)
+        
         # Create vertical scrollbar
         y_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.history_table.yview)
         self.history_table.configure(yscrollcommand=y_scrollbar.set)
         
+        # Create horizontal scrollbar
+        x_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=self.history_table.xview)
+        self.history_table.configure(xscrollcommand=x_scrollbar.set)
+        
         # Place the treeview and scrollbars in the frame
         self.history_table.grid(row=0, column=0, sticky='nsew')
         y_scrollbar.grid(row=0, column=1, sticky='ns')
+        x_scrollbar.grid(row=1, column=0, sticky='ew')
         
         # Configure the table_frame grid
         table_frame.rowconfigure(0, weight=1)
@@ -460,9 +480,14 @@ class GPAAnalysisApp:
             # Get student's classes and grades
             classes_grades = self.get_student_classes_and_grades(student_id)
             
+            # Calculate student GPA
+            gpa = self.processor.get_student_gpa(student_id)
+            gpa_text = f"{gpa:.2f}" if gpa is not None else "N/A"
+            
             row_data = [
                 info['name'],
                 student_id,
+                gpa_text,  # Add GPA
                 "✓" if info['repeat_good'] else "",
                 "✓" if info['repeat_work'] else "",
                 "✓" if info['mixed'] else "",

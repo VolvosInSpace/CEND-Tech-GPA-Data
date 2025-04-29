@@ -525,3 +525,22 @@ class GPAProcessor:
         export_df = pd.DataFrame(export_data)
         export_df.to_csv(filepath, index=False)
         return True
+
+    def get_student_gpa(self, student_id):
+        """Calculate GPA for a specific student across all their sections"""
+        total_points = 0.0
+        total_credits = 0.0
+        
+        for section_name, df in self.section_dfs.items():
+            student_row = df[df['ID'] == student_id]
+            if not student_row.empty:
+                numeric_grade = student_row['Numeric Grade'].iloc[0]
+                if pd.notna(numeric_grade):  # Only count valid grades
+                    credit_hours = self.section_credit_hours.get(section_name, 3.0)
+                    total_points += numeric_grade * credit_hours
+                    total_credits += credit_hours
+        
+        if total_credits > 0:
+            return total_points / total_credits
+        else:
+            return None
