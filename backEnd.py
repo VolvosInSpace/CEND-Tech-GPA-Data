@@ -39,7 +39,16 @@ class GPAProcessor:
         # These will store the original data for re-filtering on run selection
         self.all_section_dfs = {}
         self.all_group_dfs = {}
-
+        self.student_history = {}  # Track students across good/work lists
+    
+    def reset_to_all_data(self):
+        """
+        Reset to show data from all runs by restoring all sections and groups from original data.
+        """
+        # Restore all groups and sections from original data
+        self.group_dfs = self.all_group_dfs.copy()
+        self.section_dfs = self.all_section_dfs.copy()
+        
     def load_files_to_dataframes(self, directory):
         """
         Load all .run, .grp, .sec, and .runthis files from the specified directory.
@@ -377,6 +386,142 @@ class GPAProcessor:
             }
             export_data.append(student_data)
         
+        export_df = pd.DataFrame(export_data)
+        export_df.to_csv(filepath, index=False)
+        return True
+
+    def analyze_student_history(self):
+        """
+        Analyze students across sections to identify patterns:
+        1. Students who appear on the good list multiple times
+        2. Students who appear on the work list multiple times
+        3. Students who appear on both good and work lists
+        """
+        repeat_good = {}
+        repeat_work = {}
+        mixed = {}
+        
+        # Track the good list and work list appearances by section
+        student_appearances = {}
+        
+        # Process good list
+        for student_id, info in self.good_list.items():
+            if student_id not in student_appearances:
+                student_appearances[student_id] = {
+                    'name': info['name'],
+                    'good_classes': set(info['classes']),
+                    'work_classes': set()
+                }
+            else:
+                student_appearances[student_id]['good_classes'].update(info['classes'])
+        
+        # Process work list
+        for student_id, info in self.work_list.items():
+            if student_id not in student_appearances:
+                student_appearances[student_id] = {
+                    'name': info['name'],
+                    'good_classes': set(),
+                    'work_classes': set(info['classes'])
+                }
+            else:
+                student_appearances[student_id]['work_classes'].update(info['classes'])
+        
+        # Analyze the patterns
+        for student_id, info in student_appearances.items():
+            good_count = len(info['good_classes'])
+            work_count = len(info['work_classes'])
+            
+            if good_count > 1 and work_count == 0:
+                # Student appears on good list multiple times
+                repeat_good[student_id] = {
+                    'name': info['name'],
+                    'classes': list(info['good_classes'])
+                }
+            
+            if work_count > 1 and good_count == 0:
+                # Student appears on work list multiple times
+                repeat_work[student_id] = {
+                    'name': info['name'],
+                    'classes': list(info['work_classes'])
+                }
+            
+            if good_count > 0 and work_count > 0:
+                # Student appears on both good and work lists
+                mixed[student_id] = {
+                    'name': info['name'],
+                    'good_classes': list(info['good_classes']),
+                    'work_classes': list(info['work_classes'])
+                }
+        
+        return {
+            'repeat_good': repeat_good,
+            'repeat_work': repeat_work,
+            'mixed': mixed
+        }
+
+    def get_history_summary(self):
+        """
+        Create a summary of student history patterns.
+        Returns a dictionary with student ID keys and flags for different patterns.
+        """
+        history_patterns = self.analyze_student_history()
+        
+        # Create a consolidated view for all students
+        summary = {}
+        
+        # Process students with multiple A grades
+        for student_id, info in history_patterns['repeat_good'].items():
+            summary[student_id] = {
+                'name': info['name'],
+                'repeat_good': True,
+                'repeat_work': False,
+                'mixed': False
+            }
+        
+        # Process students with multiple D/F grades
+        for student_id, info in history_patterns['repeat_work'].items():
+            if student_id in summary:
+                summary[student_id]['repeat_work'] = True
+            else:
+                summary[student_id] = {
+                    'name': info['name'],
+                    'repeat_good': False,
+                    'repeat_work': True,
+                    'mixed': False
+                }
+        
+        # Process students with mixed performance
+        for student_id, info in history_patterns['mixed'].items():
+            if student_id in summary:
+                summary[student_id]['mixed'] = True
+            else:
+                summary[student_id] = {
+                    'name': info['name'],
+                    'repeat_good': False,
+                    'repeat_work': False,
+                    'mixed': True
+                }
+                
+        return summary
+
+    def export_history_data(self, filepath):
+        """Export student history data to a CSV file"""
+        history_summary = self.get_history_summary()
+        if not history_summary:
+            return False
+            
+        # Create export data
+        export_data = []
+        for student_id, info in history_summary.items():
+            export_data.append({
+                'Student Name': info['name'],
+                'Student ID': student_id,
+                'Good List Multiple Times': 'Yes' if info['repeat_good'] else 'No',
+                'Work List Multiple Times': 'Yes' if info['repeat_work'] else 'No',
+                'Both Lists': 'Yes' if info['mixed'] else 'No'
+            })
+        
+        # Convert to DataFrame and export
         export_df = pd.DataFrame(export_data)
         export_df.to_csv(filepath, index=False)
         return True

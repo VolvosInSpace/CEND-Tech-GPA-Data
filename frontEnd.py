@@ -31,7 +31,8 @@ class GPAAnalysisApp:
         self.create_nav_button("Group Data", self.show_group)
         self.create_nav_button("Good List", self.show_good_list)
         self.create_nav_button("Work List", self.show_bad_list)
-
+        self.create_nav_button("History", self.show_history)  # Add new history button
+        
         # Content Area
         self.content_area = tk.Frame(self.main_frame, bg="#2A2A2A")
         self.content_area.pack(side="right", fill="both", expand=True, padx=10, pady=10)
@@ -42,7 +43,8 @@ class GPAAnalysisApp:
             "Section Data": tk.Frame(self.content_area, bg="#2A2A2A"),
             "Group Data": tk.Frame(self.content_area, bg="#2A2A2A"),
             "Good List": tk.Frame(self.content_area, bg="#2A2A2A"),
-            "Work List": tk.Frame(self.content_area, bg="#2A2A2A")
+            "Work List": tk.Frame(self.content_area, bg="#2A2A2A"),
+            "History": tk.Frame(self.content_area, bg="#2A2A2A")  # Add history tab
         }
 
         self.setup_dashboard_tab()
@@ -50,6 +52,7 @@ class GPAAnalysisApp:
         self.setup_group_tab()
         self.setup_good_list_tab()
         self.setup_bad_list_tab()
+        self.setup_history_tab()  # Add this line
         self.show_dashboard()
 
     def create_nav_button(self, name, command):
@@ -83,6 +86,10 @@ class GPAAnalysisApp:
     def show_bad_list(self):
         self.show_tab("Work List")
         self.update_work_list()
+
+    def show_history(self):
+        self.show_tab("History")
+        self.update_history_data()  # Fix the method name
 
     def show_tab(self, tab_name):
         for tab in self.tabs.values():
@@ -154,6 +161,7 @@ class GPAAnalysisApp:
             self.update_group_data()
             self.update_good_list()
             self.update_work_list()
+            self.update_history_data()  # Add this line
             
             # Populate the run file combobox with keys from run_dfs
             run_files = list(self.processor.run_dfs.keys())
@@ -184,6 +192,7 @@ class GPAAnalysisApp:
             self.update_group_data()
             self.update_good_list()
             self.update_work_list()
+            self.update_history_data()  # Add this line
             self.update_summary()
             self.status_label.config(text=f"Run file '{selected_run}' applied successfully!")
         except Exception as e:
@@ -379,6 +388,115 @@ class GPAAnalysisApp:
             row_data = [info['name'], student_id, ", ".join(info['classes'])]
             self.work_list_table.insert("", "end", values=row_data)
 
+    def setup_history_tab(self):
+        tab = self.tabs["History"]
+        header_frame = tk.Frame(tab, bg="#2A2A2A")
+        header_frame.pack(fill="x", pady=10)
+        
+        tk.Label(header_frame, text="Student History Analysis", font=("Arial", 18, "bold"),
+                 fg="white", bg="#2A2A2A").pack(side="left", padx=20)
+                 
+        export_btn = tk.Button(header_frame, text="Export to CSV", 
+                              command=lambda: self.export_to_csv("History"),
+                              bg="#4CAF50", fg="white", font=("Arial", 10))
+        export_btn.pack(side="right", padx=20)
+        
+        # Create a container frame for the table and scrollbars
+        table_frame = tk.Frame(tab, bg="#2A2A2A")
+        table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # Create a single table with columns for name, ID, the three pattern types, and classes/grades
+        columns = [
+            "Student Name", 
+            "ID", 
+            "Good List Multiple Times", 
+            "Work List Multiple Times", 
+            "Both Lists",
+            "Classes and Grades"  # New column
+        ]
+        
+        self.history_table = ttk.Treeview(table_frame, columns=columns, show="headings", height=20)
+        
+        # Set up columns with appropriate widths
+        self.history_table.heading("Student Name", text="Student Name")
+        self.history_table.heading("ID", text="ID")
+        self.history_table.heading("Good List Multiple Times", text="Good List Multiple Times")
+        self.history_table.heading("Work List Multiple Times", text="Work List Multiple Times")
+        self.history_table.heading("Both Lists", text="Both Lists")
+        self.history_table.heading("Classes and Grades", text="Classes and Grades")  # New heading
+        
+        self.history_table.column("Student Name", width=200, anchor="w")
+        self.history_table.column("ID", width=100, anchor="center")
+        self.history_table.column("Good List Multiple Times", width=150, anchor="center")
+        self.history_table.column("Work List Multiple Times", width=150, anchor="center")
+        self.history_table.column("Both Lists", width=150, anchor="center")
+        self.history_table.column("Classes and Grades", width=600, anchor="w")  # Increased width from 300 to 600
+    
+        # Create vertical scrollbar
+        y_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.history_table.yview)
+        self.history_table.configure(yscrollcommand=y_scrollbar.set)
+        
+        # Place the treeview and scrollbars in the frame
+        self.history_table.grid(row=0, column=0, sticky='nsew')
+        y_scrollbar.grid(row=0, column=1, sticky='ns')
+        
+        # Configure the table_frame grid
+        table_frame.rowconfigure(0, weight=1)
+        table_frame.columnconfigure(0, weight=1)
+
+    def update_history_data(self):
+        """Update the history table with student history patterns"""
+        # Clear existing data
+        for item in self.history_table.get_children():
+            self.history_table.delete(item)
+            
+        # Get history data from processor
+        history_data = self.processor.get_history_summary()
+        if not history_data:
+            return
+            
+        # Populate the table
+        for student_id, info in history_data.items():
+            # Get student's classes and grades
+            classes_grades = self.get_student_classes_and_grades(student_id)
+            
+            row_data = [
+                info['name'],
+                student_id,
+                "✓" if info['repeat_good'] else "",
+                "✓" if info['repeat_work'] else "",
+                "✓" if info['mixed'] else "",
+                classes_grades
+            ]
+            self.history_table.insert("", "end", values=row_data)
+
+    def get_student_classes_and_grades(self, student_id):
+        """Get a formatted string of classes and grades for a student"""
+        classes_grades = []
+        
+        # Check good list
+        if student_id in self.processor.good_list:
+            for class_name in self.processor.good_list[student_id]['classes']:
+                classes_grades.append(f"{class_name}: A")
+        
+        # Check work list
+        if student_id in self.processor.work_list:
+            for class_name in self.processor.work_list[student_id]['classes']:
+                # Find the actual grade from section data
+                grade = self.find_student_grade(student_id, class_name)
+                classes_grades.append(f"{class_name}: {grade}")
+        
+        return ", ".join(classes_grades)
+
+    def find_student_grade(self, student_id, class_name):
+        """Find a student's grade in a specific class"""
+        if class_name in self.processor.section_dfs:
+            df = self.processor.section_dfs[class_name]
+            student_row = df[df['ID'] == student_id]
+            if not student_row.empty:
+                return student_row['Grade'].iloc[0]
+        return "?"  # Return ? if grade can't be found
+
     def export_to_csv(self, data_type):
         """General export function that handles file selection and calls appropriate export method"""
         file_types = [('CSV Files', '*.csv'), ('All Files', '*.*')]
@@ -402,6 +520,8 @@ class GPAAnalysisApp:
                 success = self.processor.export_student_list(filepath, list_type='good')
             elif data_type == "Work List":
                 success = self.processor.export_student_list(filepath, list_type='work')
+            elif data_type == "History":
+                success = self.processor.export_history_data(filepath)
             else:
                 messagebox.showerror("Error", f"Unknown data type: {data_type}")
                 return
