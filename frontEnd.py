@@ -1,8 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import os
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from backEnd import GPAProcessor
 
@@ -160,11 +158,8 @@ class GPAAnalysisApp:
             # Populate the run file combobox with keys from run_dfs
             run_files = list(self.processor.run_dfs.keys())
             print("DEBUG: Run files loaded:", run_files)
-            self.run_file_combobox['values'] = run_files
-            if run_files:
-                self.run_file_combobox.current(0)
-            else:
-                self.status_label.config(text="No run files found in directory.")
+            self.run_file_combobox['values'] = ["All Runs"] + run_files  # Add "All Runs" option
+            self.run_file_combobox.current(0)  # Set "All Runs" as the default selection
             self.status_label.config(text=f"Processed {file_count} files successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"Error processing files: {str(e)}")
@@ -176,7 +171,13 @@ class GPAAnalysisApp:
             messagebox.showwarning("Warning", "Please select a run file from the dropdown.")
             return
         try:
-            self.processor.select_run(selected_run)
+            if selected_run == "All Runs":
+                # Reset to include all data
+                self.processor.section_dfs = self.processor.all_section_dfs.copy()
+                self.processor.group_dfs = self.processor.all_group_dfs.copy()
+            else:
+                self.processor.select_run(selected_run)
+            
             self.processor.calculate_all_gpas()
             # Update all relevant pages with filtered data
             self.update_section_data()
@@ -213,10 +214,7 @@ class GPAAnalysisApp:
                      fg="white", bg="#2A2A2A", anchor="w").pack(fill="x", pady=2)
         chart_frame = tk.Frame(self.summary_frame, bg="#2A2A2A")
         chart_frame.pack(fill="both", expand=True, pady=10)
-        fig = self.processor.create_gpa_histogram()
-        canvas = FigureCanvasTkAgg(fig, master=chart_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
+        
 
     def setup_section_tab(self):
         tab = self.tabs["Section Data"]
@@ -326,11 +324,11 @@ class GPAAnalysisApp:
 
     def setup_good_list_tab(self):
         self.create_student_list_tab(self.tabs["Good List"], "Students with A Grades",
-                                     ["Student Name", "ID", "GPA", "Z-Score", "Sections"])
+                                     ["Student Name", "ID", "Sections"])
 
     def setup_bad_list_tab(self):
         self.create_student_list_tab(self.tabs["Work List"], "Students Needing Support",
-                                     ["Student Name", "ID", "GPA", "Z-Score", "Sections"])
+                                     ["Student Name", "ID", "Sections"])
 
     def create_student_list_tab(self, tab, title, columns):
         header_frame = tk.Frame(tab, bg="#2A2A2A")
@@ -346,17 +344,12 @@ class GPAAnalysisApp:
                               bg="#4CAF50", fg="white", font=("Arial", 10))
         export_btn.pack(side="right", padx=20)
         
-        # Updated columns to include GPA and Z-Score
-        columns = ["Student Name", "ID", "GPA", "Z-Score", "Sections"]
-        
         table = ttk.Treeview(tab, columns=columns, show="headings", height=20)
         for col in columns:
             table.heading(col, text=col)
         table.column(columns[0], width=200, anchor="w")
-        table.column(columns[1], width=80, anchor="center")
-        table.column(columns[2], width=80, anchor="center")
-        table.column(columns[3], width=80, anchor="center")
-        table.column(columns[4], width=360, anchor="w")
+        table.column(columns[1], width=100, anchor="center")
+        table.column(columns[2], width=400, anchor="w")
         scrollbar = ttk.Scrollbar(tab, orient="vertical", command=table.yview)
         table.configure(yscrollcommand=scrollbar.set)
         table.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=10)
@@ -373,15 +366,7 @@ class GPAAnalysisApp:
         if not good_list:
             return
         for student_id, info in good_list.items():
-            gpa_text = f"{info.get('gpa', 'N/A'):.2f}" if info.get('gpa') is not None else "N/A"
-            z_score_text = f"{info.get('z_score', 'N/A'):.2f}" if info.get('z_score') is not None else "N/A"
-            row_data = [
-                info['name'], 
-                student_id, 
-                gpa_text,
-                z_score_text,
-                ", ".join(info['classes'])
-            ]
+            row_data = [info['name'], student_id, ", ".join(info['classes'])]
             self.good_list_table.insert("", "end", values=row_data)
 
     def update_work_list(self):
@@ -391,15 +376,7 @@ class GPAAnalysisApp:
         if not work_list:
             return
         for student_id, info in work_list.items():
-            gpa_text = f"{info.get('gpa', 'N/A'):.2f}" if info.get('gpa') is not None else "N/A"
-            z_score_text = f"{info.get('z_score', 'N/A'):.2f}" if info.get('z_score') is not None else "N/A"
-            row_data = [
-                info['name'], 
-                student_id, 
-                gpa_text,
-                z_score_text,
-                ", ".join(info['classes'])
-            ]
+            row_data = [info['name'], student_id, ", ".join(info['classes'])]
             self.work_list_table.insert("", "end", values=row_data)
 
     def export_to_csv(self, data_type):
